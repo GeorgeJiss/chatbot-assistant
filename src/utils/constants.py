@@ -24,42 +24,38 @@ EXIT_KEYWORDS = [
     "end", "close", "terminate", "leave"
 ]
 
-# Greeting messages
+# Greeting message
 GREETING_MESSAGE = """
-👋 Hello! Welcome to **TalentScout AI Hiring Assistant**.
+Hello! Welcome to TalentScout AI Voice Interviewer.
 
-I'm here to help with your initial screening process for technology positions. 
+I'm here to conduct your initial screening interview for technology positions.
 
-I'll be asking you some questions to:
-1. Gather your basic information
-2. Understand your technical expertise
-3. Assess your skills through relevant questions
+The interview will take approximately 10-15 minutes. I'll ask you questions about:
+- Your basic information
+- Your technical expertise
+- Your skills through relevant questions
 
-This should take about 10-15 minutes. Let's get started!
+You can use voice or text to respond. To begin, please tell me your full name.
 
-**To begin, could you please tell me your full name?**
-
-_(You can type 'exit' or 'quit' at any time to end the conversation)_
+You can say 'exit' or 'quit' at any time to end the interview.
 """
 
 # Information gathering prompts
 INFO_PROMPTS = {
-    InfoField.NAME: "Great! Could you please provide your full name?",
-    InfoField.EMAIL: "Thank you! What's your email address?",
-    InfoField.PHONE: "Perfect! What's your phone number?",
+    InfoField.NAME: "Please tell me your full name.",
+    InfoField.EMAIL: "What is your email address?",
+    InfoField.PHONE: "What is your phone number?",
     InfoField.EXPERIENCE: "How many years of professional experience do you have?",
-    InfoField.POSITION: "What position(s) are you interested in applying for?",
+    InfoField.POSITION: "What position are you interested in applying for?",
     InfoField.LOCATION: "Where are you currently located?",
     InfoField.TECH_STACK: """
-Now, let's talk about your technical skills!
+Please tell me your tech stack - the technologies you're proficient in. Include:
+- Programming languages (Python, JavaScript, Java, etc.)
+- Frameworks (React, Django, Spring, etc.)
+- Databases (PostgreSQL, MongoDB, etc.)
+- Tools (Docker, AWS, Git, etc.)
 
-Please list your tech stack - the technologies you're proficient in. This can include:
-- Programming languages (e.g., Python, JavaScript, Java)
-- Frameworks (e.g., React, Django, Spring Boot)
-- Databases (e.g., PostgreSQL, MongoDB)
-- Tools (e.g., Docker, Git, AWS)
-
-You can list them separated by commas.
+You can list up to 3 main technologies.
 """
 }
 
@@ -67,39 +63,30 @@ You can list them separated by commas.
 FALLBACK_RESPONSES = [
     "I didn't quite understand that. Could you please rephrase?",
     "I'm sorry, I'm having trouble understanding. Could you provide that information again?",
-    "I couldn't process that response. Let's try again - could you please provide the requested information?",
+    "I couldn't process that response. Let's try again.",
 ]
 
 # Closing message
 CLOSING_MESSAGE = """
-🎉 **Thank you for completing the screening process!**
+Thank you for completing the screening interview!
 
 We've successfully collected all your information and assessed your technical skills.
 
-**Next Steps:**
+Next Steps:
 1. Our recruitment team will review your responses within 2-3 business days
 2. If your profile matches our requirements, we'll reach out via email or phone
-3. You may be invited for a technical interview with our client companies
+3. You may be invited for a technical interview
 
-**What to expect:**
+What to expect:
 - Review timeline: 2-3 business days
-- Technical interview: 45-60 minutes
+- Technical interview: 45-60 minutes  
 - Final decision: 1 week after interview
 
-We appreciate your time and interest in opportunities through TalentScout!
+We appreciate your time and interest in opportunities through TalentScout.
 
-For any questions, feel free to reach out to us at careers@talentscout.com
+For questions, contact us at careers@talentscout.com
 
-Good luck! 🚀
-"""
-
-# Exit message
-EXIT_MESSAGE = """
-Thank you for your time! Your session has been saved.
-
-If you'd like to continue later, please reach out to us at careers@talentscout.com
-
-Have a great day! 👋
+Good luck!
 """
 
 # Technical question categories

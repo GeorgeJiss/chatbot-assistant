@@ -216,7 +216,7 @@ talentscout-hiring-assistant/
     └── app.log                    # Application logs
 ```
 
-## 🧪 Testing
+<!-- ## 🧪 Testing
 
 Run the test suite:
 ```bash
@@ -231,7 +231,7 @@ pytest --cov=src tests/
 
 # Run specific test file
 pytest tests/test_validation.py -v
-```
+``` -->
 
 ## 🚀 Deployment
 
@@ -281,27 +281,12 @@ Contributions welcome! Please:
 4. Push to branch
 5. Open Pull Request
 
-## 📄 License
-
-This project is licensed under the MIT License.
-
 ## 👥 Authors
 
-- **Your Name** - Initial work
+- **George Jiss**
 
 ## 🙏 Acknowledgments
 
 - [Groq](https://groq.com/) for free, fast LLM inference
 - [Streamlit](https://streamlit.io/) for the amazing web framework
 - [Meta AI](https://ai.meta.com/) for Llama models
-
-## 📞 Contact
-
-- Email: careers@talentscout.com
-- GitHub: https://github.com/yourusername/talentscout-hiring-assistant
-
----
-
-**Made with ❤️ for better hiring experiences**
-
-*Last Updated: October 30, 2025*

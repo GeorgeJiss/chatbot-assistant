@@ -1,361 +1,504 @@
-"""
-TalentScout AI Hiring Assistant
-Main Streamlit Application
-"""
-
 import streamlit as st
 import sys
 from pathlib import Path
+import time
+import html
+from base64 import b64encode
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent))
 
 from src.chatbot.manager import ChatbotManager
-from src.utils.constants import ConversationStage, EXIT_KEYWORDS
+from src.utils.constants import EXIT_KEYWORDS, ConversationStage
+from src.services.voice_service import VoiceService
 import config
 
 # Page configuration
 st.set_page_config(
-    page_title="TalentScout AI Hiring Assistant",
-    page_icon="🤖",
+    page_title="TalentScout AI Voice Interviewer",
+    page_icon="🎤",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS - IMPROVED VERSION
+# Custom CSS with fixed styling
 st.markdown("""
 <style>
-    /* Main container styling */
-    .main {
-        background-color: #0e1117;
-    }
-    
-    /* Header styling */
-    .main-header {
-        text-align: center;
-        padding: 2rem 1rem;
+    /* Main container background */
+    [data-testid="stAppViewContainer"] {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+    }
+    
+    /* Timer container - fixed positioning */
+    .timer-container {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .timer-display {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1e3c72;
+        font-family: 'Courier New', monospace;
+        text-align: center;
+    }
+    
+    .timer-warning {
+        color: #ff6b6b !important;
+        animation: pulse-red 1s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-red {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
+    .timer-label {
+        font-size: 0.7rem;
+        color: #666;
+        text-align: center;
+        margin-top: 0.25rem;
+    }
+    
+    /* Interview container with proper text color */
+    .interview-container {
+        background: #ffffff;
         border-radius: 15px;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 2.5rem;
+        margin-top: 100px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        color: #333333;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
     }
     
-    .main-header h1 {
-        margin: 0;
-        font-size: 2.5rem;
-        font-weight: 700;
-    }
-    
-    .main-header p {
-        margin: 0.5rem 0 0 0;
-        font-size: 1.1rem;
-        opacity: 0.95;
-    }
-    
-    /* Chat message containers */
-    .chat-message {
-        padding: 1.2rem;
-        border-radius: 12px;
-        margin-bottom: 1rem;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-width: 100%;
-    }
-    
-    .user-message {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        margin-left: 2rem;
-        border-left: 4px solid #2196F3;
-        color: #1a1a1a;
-    }
-    
-    .assistant-message {
-        background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
-        margin-right: 2rem;
-        border-left: 4px solid #667eea;
-        color: #1a1a1a;
-    }
-    
-    .message-label {
-        font-weight: 700;
-        font-size: 0.9rem;
-        margin-bottom: 0.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: #333;
-    }
-    
-    .message-content {
-        color: #2c3e50;
-        font-size: 1rem;
-        line-height: 1.6;
-        white-space: pre-wrap;
-        word-break: break-word;
-    }
-    
-    /* Info and success boxes */
-    .info-box {
-        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #ffc107;
-        margin: 1rem 0;
-        color: #856404;
-    }
-    
-    .success-box {
-        background: linear-gradient(135deg, #d4edda 0%, #b8e6c0 100%);
+    /* Question box with dark text */
+    .question-box {
+        background: #f8f9fa;
+        color: #1a1a1a !important;
         padding: 1.5rem;
-        border-radius: 8px;
-        border-left: 4px solid #28a745;
-        margin: 1rem 0;
-        color: #155724;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        border-left: 5px solid #667eea;
     }
     
-    .success-box strong {
-        font-size: 1.2rem;
-        display: block;
+    .question-box h2 {
+        color: #1e3c72 !important;
+        margin-bottom: 1rem;
+    }
+    
+    .question-box p {
+        color: #333333 !important;
+    }
+    
+    .question-number {
+        font-size: 0.9rem;
+        color: #555 !important;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+    
+    .question-tech {
+        font-size: 0.85rem;
+        opacity: 0.85;
+        font-weight: 600;
+        color: #1e3c72 !important;
         margin-bottom: 0.5rem;
     }
     
-    /* Sidebar styling */
-    .css-1d391kg, [data-testid="stSidebar"] {
-        background-color: #1a1a2e;
+    /* Voice control panel */
+    .voice-control-panel {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        text-align: center;
     }
     
-    .css-1d391kg p, [data-testid="stSidebar"] p {
-        color: #e0e0e0;
+    /* Status indicators */
+    .status-indicator {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        font-weight: 600;
+        font-size: 1rem;
+        margin: 0.5rem;
+        color: white !important;
     }
     
-    /* Input field styling */
-    .stChatInput {
-        background-color: #2c3e50;
+    .status-listening {
+        background: #4CAF50;
+        color: white !important;
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    .status-ready {
+        background: #2196F3;
+        color: white !important;
+    }
+    
+    .status-processing {
+        background: #FF9800;
+        color: white !important;
     }
     
     /* Button styling */
     .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 1rem 2rem !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        transition: all 0.3s ease !important;
+        width: 100% !important;
+        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3) !important;
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
     }
     
-    /* Progress indicators */
-    .progress-item {
-        color: #4CAF50;
-        font-weight: 500;
-        margin: 0.3rem 0;
+    .stButton > button:disabled {
+        opacity: 0.6 !important;
+        cursor: not-allowed !important;
     }
     
-    /* Hide Streamlit branding */
+    /* Text input styling */
+    .stTextInput > div > div > input {
+        background: white !important;
+        color: #333333 !important;
+        border: 2px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        padding: 0.75rem !important;
+        font-size: 1rem !important;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+    }
+    
+    /* Chat message styling */
+    .chat-message {
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        color: #333333 !important;
+    }
+    
+    .chat-message.user {
+        background: #e3f2fd;
+        margin-left: 2rem;
+        text-align: right;
+    }
+    
+    .chat-message.assistant {
+        background: #f5f5f5;
+        margin-right: 2rem;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    
+    /* Hide Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    .stDeployButton {display: none;}
+    header {visibility: hidden;}
     
-    /* Spinner styling */
-    .stSpinner > div {
-        border-top-color: #667eea !important;
+    /* Ensure text is visible everywhere */
+    * {
+        color: #333333;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        color: #1e3c72 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 def initialize_session_state():
-    """Initialize session state variables"""
+    """Initialize all session state variables"""
     if 'chatbot' not in st.session_state:
         st.session_state.chatbot = ChatbotManager()
-    
+    if 'voice_service' not in st.session_state:
+        st.session_state.voice_service = VoiceService()
     if 'messages' not in st.session_state:
         st.session_state.messages = []
-        # Add greeting message
         greeting = st.session_state.chatbot.get_greeting()
         st.session_state.messages.append({
             "role": "assistant",
             "content": greeting
         })
-    
     if 'conversation_ended' not in st.session_state:
         st.session_state.conversation_ended = False
+    if 'voice_mode' not in st.session_state:
+        st.session_state.voice_mode = True
+    if 'current_status' not in st.session_state:
+        st.session_state.current_status = "ready"
+    if 'current_question_formatted' not in st.session_state:
+        st.session_state.current_question_formatted = None
+    if 'waiting_for_answer' not in st.session_state:
+        st.session_state.waiting_for_answer = True
+    if 'show_chat_history' not in st.session_state:
+        st.session_state.show_chat_history = False
 
-def display_header():
-    """Display application header"""
-    st.markdown("""
-    <div class="main-header">
-        <h1>🤖 TalentScout AI Hiring Assistant</h1>
-        <p>Intelligent Candidate Screening for Technology Placements</p>
+def display_live_timer():
+    """Display live countdown timer"""
+    # Get time remaining from chatbot
+    time_remaining = st.session_state.chatbot.get_time_remaining()
+    minutes = time_remaining // 60
+    seconds = time_remaining % 60
+    is_warning = time_remaining < config.WARNING_TIME
+    
+    timer_class = "timer-warning" if is_warning else ""
+    
+    # Create timer HTML
+    timer_html = f"""
+    <div class="timer-container">
+        <div class="timer-display {timer_class}">{minutes:02d}:{seconds:02d}</div>
+        <div class="timer-label">Time Remaining</div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    
+    # Display timer
+    st.markdown(timer_html, unsafe_allow_html=True)
+    
+    # Auto-refresh every second
+    if time_remaining > 0 and not st.session_state.conversation_ended:
+        time.sleep(1)
+        st.rerun()
 
-def display_sidebar():
-    """Display sidebar with information"""
-    with st.sidebar:
-        st.header("ℹ️ About")
-        st.write("""
-        This AI assistant helps streamline the initial candidate screening process by:
-        
-        - 📝 Gathering essential candidate information
-        - 💻 Assessing technical proficiency
-        - 🎯 Generating relevant tech questions
-        - ⚡ Providing instant feedback
-        """)
-        
-        st.divider()
-        
-        st.header("🔐 Privacy")
-        st.write("""
-        Your data is:
-        - Stored locally only
-        - GDPR compliant
-        - Not shared with third parties
-        """)
-        
-        st.divider()
-        
-        st.header("💡 Tips")
-        st.write("""
-        - Be specific about your tech stack
-        - Answer questions thoroughly
-        - Type 'exit', 'quit', or 'bye' to end
-        """)
-        
-        if st.session_state.chatbot.current_stage != ConversationStage.GREETING:
-            st.divider()
-            st.header("📊 Progress")
-            stage_names = {
-                ConversationStage.GREETING: "Greeting",
-                ConversationStage.INFO_GATHERING: "Info Gathering",
-                ConversationStage.TECH_STACK: "Tech Stack",
-                ConversationStage.TECHNICAL_QUESTIONS: "Technical Q&A",
-                ConversationStage.CLOSING: "Closing"
-            }
-            current = stage_names.get(st.session_state.chatbot.current_stage, "Unknown")
-            st.info(f"**Current Stage:** {current}")
-            
-            # Show collected info
-            if st.session_state.chatbot.candidate_data:
-                st.write("**Collected Data:**")
-                data = st.session_state.chatbot.candidate_data
-                if data.get('name'):
-                    st.markdown('<p class="progress-item">✓ Name</p>', unsafe_allow_html=True)
-                if data.get('email'):
-                    st.markdown('<p class="progress-item">✓ Email</p>', unsafe_allow_html=True)
-                if data.get('phone'):
-                    st.markdown('<p class="progress-item">✓ Phone</p>', unsafe_allow_html=True)
-                if data.get('experience'):
-                    st.markdown('<p class="progress-item">✓ Experience</p>', unsafe_allow_html=True)
-                if data.get('position'):
-                    st.markdown('<p class="progress-item">✓ Position</p>', unsafe_allow_html=True)
-                if data.get('location'):
-                    st.markdown('<p class="progress-item">✓ Location</p>', unsafe_allow_html=True)
-                if data.get('tech_stack'):
-                    st.markdown('<p class="progress-item">✓ Tech Stack</p>', unsafe_allow_html=True)
+def display_interview_slide():
+    """Display current interview slide"""
+    last_message = st.session_state.messages[-1]['content'] if st.session_state.messages else "Interview starting..."
+    
+    # Format current question if available
+    if st.session_state.chatbot.current_question and st.session_state.chatbot.current_stage == ConversationStage.TECHNICAL_QUESTIONS:
+        st.session_state.current_question_formatted = st.session_state.chatbot.question_generator.format_question(
+            st.session_state.chatbot.current_tech,
+            st.session_state.chatbot.current_question,
+            st.session_state.chatbot.question_count + 1,
+            st.session_state.chatbot.total_questions
+        )
+    
+    # Display the question or message
+    if st.session_state.current_question_formatted and st.session_state.chatbot.current_stage == ConversationStage.TECHNICAL_QUESTIONS:
+        formatted_content = html.escape(st.session_state.current_question_formatted).replace("\n", "<br>")
+        st.markdown(
+            f'<div class="question-box"><div>{formatted_content}</div></div>',
+            unsafe_allow_html=True
+        )
+    else:
+        formatted_content = html.escape(last_message).replace("\n", "<br>")
+        st.markdown(
+            f'<div class="question-box"><div>{formatted_content}</div></div>',
+            unsafe_allow_html=True
+        )
+    
+    # Display controls
+    display_controls()
 
-def display_chat_history():
-    """Display chat message history"""
-    for message in st.session_state.messages:
-        role = message["role"]
-        content = message["content"]
+def display_controls():
+    """Display voice/text input controls"""
+    st.markdown('<div class="voice-control-panel">', unsafe_allow_html=True)
+    
+    # Status indicator
+    status_map = {
+        "ready": ("Ready to Record", "status-ready"),
+        "listening": ("🎤 Listening... Speak now!", "status-listening"),
+        "processing": ("Processing your answer...", "status-processing")
+    }
+    status_text, status_class = status_map.get(st.session_state.current_status, ("Ready", "status-ready"))
+    st.markdown(f'<div class="status-indicator {status_class}">{status_text}</div>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Control buttons
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("🎤 Record Answer", key="record_btn", use_container_width=True, 
+                     disabled=(st.session_state.current_status == "listening" or not st.session_state.waiting_for_answer)):
+            st.session_state.current_status = "listening"
+            st.rerun()
+    
+    with col2:
+        mode_label = "💬 Switch to Text" if st.session_state.voice_mode else "🎤 Switch to Voice"
+        if st.button(mode_label, key="mode_btn", use_container_width=True):
+            st.session_state.voice_mode = not st.session_state.voice_mode
+            st.rerun()
+    
+    with col3:
+        if st.button("💬 Chat History", key="chat_btn", use_container_width=True):
+            st.session_state.show_chat_history = not st.session_state.show_chat_history
+            st.rerun()
+    
+    # Handle voice recording
+    if st.session_state.current_status == "listening":
+        with st.spinner("🎤 Listening... Speak clearly into your microphone..."):
+            success, text, error = st.session_state.voice_service.speech_to_text()
         
-        # Escape HTML in content to prevent rendering issues
-        import html
-        safe_content = html.escape(content)
+        st.session_state.current_status = "processing"
         
-        if role == "user":
-            st.markdown(f"""
-            <div class="chat-message user-message">
-                <div class="message-label">👤 You</div>
-                <div class="message-content">{safe_content}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        if success and text:
+            process_user_input(text, is_voice=True)
         else:
-            st.markdown(f"""
-            <div class="chat-message assistant-message">
-                <div class="message-label">🤖 Assistant</div>
-                <div class="message-content">{safe_content}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.error(f"❌ {error or 'Could not capture audio. Please try again.'}")
+            st.session_state.current_status = "ready"
+            time.sleep(2)
+            st.rerun()
+    
+    # Text input mode
+    if not st.session_state.voice_mode:
+        st.markdown("---")
+        user_text = st.text_input(
+            "Type your answer:", 
+            key="text_input", 
+            placeholder="Type your answer here and press Submit...",
+            disabled=not st.session_state.waiting_for_answer
+        )
+        
+        if st.button("📤 Submit Answer", key="submit_btn", use_container_width=True, 
+                     disabled=not st.session_state.waiting_for_answer):
+            if user_text and user_text.strip():
+                st.session_state.current_status = "processing"
+                process_user_input(user_text, is_voice=False)
+            else:
+                st.warning("⚠️ Please enter an answer before submitting.")
+    
+    # Show chat history if enabled
+    if st.session_state.show_chat_history:
+        st.markdown("---")
+        st.markdown("### 💬 Conversation History")
+        for msg in st.session_state.messages[-5:]:  # Show last 5 messages
+            role_class = "user" if msg["role"] == "user" else "assistant"
+            role_emoji = "👤" if msg["role"] == "user" else "🤖"
+            st.markdown(
+                f'<div class="chat-message {role_class}">{role_emoji} {html.escape(msg["content"])}</div>',
+                unsafe_allow_html=True
+            )
 
-def check_exit_keyword(user_input: str) -> bool:
-    """Check if user wants to exit"""
-    return any(keyword in user_input.lower() for keyword in EXIT_KEYWORDS)
+def display_closing_slide():
+    """Display closing slide"""
+    last_message = st.session_state.messages[-1]['content']
+    
+    st.markdown(
+        f"""<div class="question-box">
+        <h2>✅ Interview Completed!</h2>
+        <p>{html.escape(last_message).replace(chr(10), '<br>')}</p>
+        </div>""",
+        unsafe_allow_html=True
+    )
+    
+    if st.button("🔄 Start New Interview", key="new_btn", use_container_width=True):
+        # Clear all session state
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+def process_user_input(user_input: str, is_voice: bool):
+    """Process user input and generate response"""
+    # Mark that we're not waiting for answer anymore
+    st.session_state.waiting_for_answer = False
+    st.session_state.current_question_formatted = None
+    
+    # Add user message
+    st.session_state.messages.append({
+        "role": "user",
+        "content": user_input
+    })
+    
+    # Check for exit keywords
+    if any(keyword in user_input.lower() for keyword in EXIT_KEYWORDS):
+        response_data = st.session_state.chatbot.handle_exit()
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response_data['response']
+        })
+        st.session_state.conversation_ended = True
+        st.session_state.current_status = "ready"
+        st.rerun()
+        return
+    
+    # Process message with chatbot
+    with st.spinner("🤔 AI is thinking..."):
+        response_data = st.session_state.chatbot.process_message(user_input, is_voice=is_voice)
+    
+    # Add assistant message
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": response_data['response']
+    })
+    
+    # Play audio if available and voice mode is on
+    if response_data.get('audio_path') and st.session_state.voice_mode:
+        try:
+            with open(response_data['audio_path'], "rb") as audio_file:
+                audio_bytes = audio_file.read()
+            audio_base64 = b64encode(audio_bytes).decode()
+            audio_html = f"""
+            <audio autoplay style='display:none;'>
+                <source src='data:audio/mp3;base64,{audio_base64}' type='audio/mp3'>
+            </audio>
+            """
+            st.markdown(audio_html, unsafe_allow_html=True)
+        except Exception as e:
+            print(f"Error playing audio: {e}")
+    
+    # Check if conversation ended
+    if response_data.get('end_conversation'):
+        st.session_state.conversation_ended = True
+    
+    # Reset status and allow next answer
+    st.session_state.current_status = "ready"
+    st.session_state.waiting_for_answer = True
+    
+    # Rerun to show next question
+    time.sleep(1)
+    st.rerun()
 
 def main():
     """Main application function"""
+    # Initialize session state
     initialize_session_state()
-    display_header()
-    display_sidebar()
     
-    # Display chat history
-    display_chat_history()
+    # Check if time exceeded
+    if st.session_state.chatbot.is_time_exceeded() and not st.session_state.conversation_ended:
+        st.session_state.conversation_ended = True
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": "⏰ Time's up! Thank you for participating. We will save your progress and our team will be in touch."
+        })
+        st.session_state.chatbot.handle_exit()
     
-    # Check if conversation has ended
+    # Display timer (with auto-refresh)
+    display_live_timer()
+    
+    # Main content container
+    st.markdown('<div class="interview-container">', unsafe_allow_html=True)
+    
     if st.session_state.conversation_ended:
-        st.markdown("""
-        <div class="success-box">
-            <strong>✅ Conversation Ended</strong>
-            <p>Thank you for using TalentScout AI! Refresh the page to start a new session.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("🔄 Start New Session", use_container_width=True):
-            # Clear session state
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
-        return
+        display_closing_slide()
+    else:
+        display_interview_slide()
     
-    # Chat input
-    user_input = st.chat_input("Type your message here...")
-    
-    if user_input:
-        # Check for exit keywords
-        if check_exit_keyword(user_input):
-            # Add user message
-            st.session_state.messages.append({
-                "role": "user",
-                "content": user_input
-            })
-            
-            # Get closing message
-            closing_msg = st.session_state.chatbot.handle_exit()
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": closing_msg
-            })
-            
-            st.session_state.conversation_ended = True
-            st.rerun()
-        else:
-            # Add user message to chat
-            st.session_state.messages.append({
-                "role": "user",
-                "content": user_input
-            })
-            
-            # Get chatbot response
-            with st.spinner("🤔 Thinking..."):
-                response = st.session_state.chatbot.process_message(user_input)
-            
-            # Add assistant response
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": response
-            })
-            
-            # Check if conversation naturally ended
-            if st.session_state.chatbot.current_stage == ConversationStage.CLOSING:
-                if "thank you" in response.lower() or "next steps" in response.lower():
-                    st.session_state.conversation_ended = True
-            
-            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
