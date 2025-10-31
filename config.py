@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).parent
 
 # API Configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")  # Latest model
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 # LLM Settings
 MAX_TOKENS = 1024
@@ -21,55 +21,75 @@ TOP_P = 0.9
 DATA_DIR = BASE_DIR / "data"
 CANDIDATES_DIR = DATA_DIR / "candidates"
 TECH_STACKS_DIR = DATA_DIR / "tech_stacks"
-AUDIO_DIR = DATA_DIR / "audio"
 
 # Create directories if they don't exist
 CANDIDATES_DIR.mkdir(parents=True, exist_ok=True)
 TECH_STACKS_DIR.mkdir(parents=True, exist_ok=True)
-AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 # Validation Patterns
 EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 PHONE_PATTERN = r'^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$'
 
-# Question Generation - OPTIMIZED FOR 15 MIN INTERVIEW
-QUESTIONS_PER_TECH = 2  # 2 questions per technology
-MAX_TECH_STACK_ITEMS = 3  # Maximum 3 technologies
+# Question Generation - ROLE-BASED
+QUESTIONS_PER_TECH = 3  # 3-5 questions per technology
+MAX_TECH_STACK_ITEMS = 5  # Maximum 5 technologies
 MIN_TECH_STACK_ITEMS = 1  # Minimum 1 technology
 
-# Voice Settings - IMPROVED
-VOICE_ENABLED = True
-TTS_LANGUAGE = 'en'
-TTS_SLOW = False
-SPEECH_TIMEOUT = 20  # Reduced to 20 seconds to wait for answer start
-SPEECH_PHRASE_TIMEOUT = 15  # Reduced to 15 seconds for complete answer
-ANSWER_WAIT_TIME = 30  # 30 seconds to wait before prompting
+# Time Management
+QUESTION_TIME_LIMIT = 120  # 2 minutes (120 seconds) per question
+WARNING_TIME = 30  # Show warning at 30 seconds remaining
 
-# Interview Time Management - STRICT TIMING
-MAX_INTERVIEW_DURATION = 900  # 15 minutes in seconds (900)
-WARNING_TIME = 180  # Show warning at 3 minutes remaining (180)
+# Role-Based Question Difficulty
+ROLE_DIFFICULTY_MAP = {
+    # Junior roles
+    'intern': 'junior',
+    'junior': 'junior',
+    'entry level': 'junior',
+    'graduate': 'junior',
+    'trainee': 'junior',
+    
+    # Mid-level roles
+    'developer': 'mid',
+    'engineer': 'mid',
+    'mid level': 'mid',
+    'software engineer': 'mid',
+    
+    # Senior roles
+    'senior': 'senior',
+    'lead': 'senior',
+    'principal': 'senior',
+    'staff': 'senior',
+    
+    # Architect/Lead roles
+    'architect': 'architect',
+    'tech lead': 'architect',
+    'engineering manager': 'architect',
+    'head': 'architect'
+}
+
+# Experience-Based Difficulty (fallback)
+EXPERIENCE_DIFFICULTY = {
+    (0, 2): 'junior',      # 0-2 years
+    (2, 5): 'mid',         # 2-5 years
+    (5, 10): 'senior',     # 5-10 years
+    (10, 100): 'architect' # 10+ years
+}
 
 # Answer Quality Settings
-MIN_ANSWER_LENGTH = 10  # Minimum 10 characters (reduced for voice)
-MAX_ANSWER_LENGTH = 1000  # Maximum 1000 characters
+MIN_ANSWER_LENGTH = 20  # Minimum 20 characters
+MAX_ANSWER_LENGTH = 2000  # Maximum 2000 characters
 SENTIMENT_THRESHOLD = -0.3  # Negative sentiment threshold
 
-# Multilingual Support
-SUPPORTED_LANGUAGES = {
-    'en': 'English',
-    'es': 'Spanish',
-    'fr': 'French',
-    'de': 'German',
-    'hi': 'Hindi',
-    'zh-cn': 'Chinese'
-}
+# Proctoring Settings
+MAX_TAB_SWITCHES = 3  # Flag if more than 3 tab switches
+COPY_PASTE_DISABLED = True  # Disable copy-paste
 
 # Session Settings
 SESSION_TIMEOUT_MINUTES = 30
 
 # Application Settings
-APP_NAME = "TalentScout AI Voice Interviewer"
-APP_VERSION = "2.0.0"
+APP_NAME = "TalentScout AI Hiring Assistant"
+APP_VERSION = "2.1.0"
 COMPANY_NAME = "TalentScout"
 
 # Logging
@@ -79,14 +99,46 @@ LOG_FILE = BASE_DIR / "logs" / "app.log"
 # Create logs directory
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-# Auto-save frequency (in number of questions)
-AUTO_SAVE_FREQUENCY = 1  # Save after every question
+# Auto-save frequency
+AUTO_SAVE_FREQUENCY = 1  # Save after every answer
 
-# UI Settings
-ENABLE_CHAT_HISTORY = True  # Show chat history option
-ENABLE_VOICE_MODE_TOGGLE = True  # Allow switching between voice and text
-SHOW_PROGRESS_BAR = False  # Don't show progress to candidate (internal only)
-
-# Admin Settings (for viewing results - not shown to candidates)
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")  # Change this!
-SHOW_SCORES_TO_ADMIN_ONLY = True  # Only admin can see scores
+# Technology Categories with subcategories
+TECH_CATEGORIES = {
+    "languages": {
+        "web": ["javascript", "typescript", "html", "css"],
+        "backend": ["python", "java", "c#", "go", "rust", "php", "ruby"],
+        "mobile": ["swift", "kotlin", "dart"],
+        "systems": ["c", "c++", "rust"],
+        "data": ["python", "r", "sql", "scala"]
+    },
+    "frameworks": {
+        "frontend": ["react", "angular", "vue", "svelte", "next.js", "nuxt"],
+        "backend": ["django", "flask", "fastapi", "spring", "express", "nest.js", "laravel", "rails"],
+        "mobile": ["react native", "flutter", "ionic"],
+        "fullstack": ["next.js", "nuxt", "meteor"]
+    },
+    "databases": {
+        "sql": ["postgresql", "mysql", "oracle", "sql server", "sqlite"],
+        "nosql": ["mongodb", "cassandra", "couchdb"],
+        "cache": ["redis", "memcached"],
+        "search": ["elasticsearch", "solr"]
+    },
+    "cloud": {
+        "aws": ["aws", "ec2", "s3", "lambda", "dynamodb", "rds"],
+        "azure": ["azure", "azure functions", "cosmos db"],
+        "gcp": ["gcp", "google cloud", "firestore", "cloud functions"],
+        "platforms": ["heroku", "netlify", "vercel", "digitalocean"]
+    },
+    "devops": {
+        "containers": ["docker", "kubernetes", "podman"],
+        "ci_cd": ["jenkins", "gitlab ci", "github actions", "circleci"],
+        "iac": ["terraform", "ansible", "cloudformation"],
+        "monitoring": ["prometheus", "grafana", "datadog", "new relic"]
+    },
+    "tools": {
+        "version_control": ["git", "github", "gitlab", "bitbucket"],
+        "testing": ["jest", "pytest", "junit", "selenium", "cypress"],
+        "build": ["webpack", "vite", "gradle", "maven"],
+        "api": ["postman", "swagger", "graphql"]
+    }
+}

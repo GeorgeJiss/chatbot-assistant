@@ -25,38 +25,36 @@ EXIT_KEYWORDS = [
 ]
 
 # Greeting message
-GREETING_MESSAGE = """
-Hello! Welcome to TalentScout AI Voice Interviewer.
+GREETING_MESSAGE = """Hello! Welcome to TalentScout AI Hiring Assistant.
 
 I'm here to conduct your initial screening interview for technology positions.
 
 The interview will take approximately 10-15 minutes. I'll ask you questions about:
-- Your basic information
-- Your technical expertise
-- Your skills through relevant questions
+• Your basic information
+• Your technical expertise
+• Your skills through relevant questions
 
-You can use voice or text to respond. To begin, please tell me your full name.
+You can type "exit", "quit", or "bye" at any time to end the interview.
 
-You can say 'exit' or 'quit' at any time to end the interview.
-"""
+**Let's start by entering your full name.**"""
 
 # Information gathering prompts
 INFO_PROMPTS = {
     InfoField.NAME: "Please tell me your full name.",
     InfoField.EMAIL: "What is your email address?",
     InfoField.PHONE: "What is your phone number?",
-    InfoField.EXPERIENCE: "How many years of professional experience do you have?",
+    InfoField.EXPERIENCE: "How many years of professional experience do you have? (e.g., '3 years', '5.5 years')",
     InfoField.POSITION: "What position are you interested in applying for?",
-    InfoField.LOCATION: "Where are you currently located?",
-    InfoField.TECH_STACK: """
-Please tell me your tech stack - the technologies you're proficient in. Include:
+    InfoField.LOCATION: "Where are you currently located? (City, State/Country)",
+    InfoField.TECH_STACK: """Please tell me your tech stack - the technologies you're proficient in.
+
+List the technologies separated by commas. For example:
 - Programming languages (Python, JavaScript, Java, etc.)
 - Frameworks (React, Django, Spring, etc.)
 - Databases (PostgreSQL, MongoDB, etc.)
 - Tools (Docker, AWS, Git, etc.)
 
-You can list up to 3 main technologies.
-"""
+You can list up to 5 technologies."""
 }
 
 # Fallback responses
@@ -67,29 +65,27 @@ FALLBACK_RESPONSES = [
 ]
 
 # Closing message
-CLOSING_MESSAGE = """
-Thank you for completing the screening interview!
+CLOSING_MESSAGE = """🎉 Thank you for completing the screening interview!
 
 We've successfully collected all your information and assessed your technical skills.
 
-Next Steps:
+**Next Steps:**
 1. Our recruitment team will review your responses within 2-3 business days
 2. If your profile matches our requirements, we'll reach out via email or phone
 3. You may be invited for a technical interview
 
-What to expect:
-- Review timeline: 2-3 business days
-- Technical interview: 45-60 minutes  
-- Final decision: 1 week after interview
+**What to expect:**
+• Review timeline: 2-3 business days
+• Technical interview: 45-60 minutes (if selected)
+• Final decision: 1 week after interview
 
 We appreciate your time and interest in opportunities through TalentScout.
 
 For questions, contact us at careers@talentscout.com
 
-Good luck!
-"""
+Good luck! 🚀"""
 
-# Technical question categories
+# Technical question categories - for question generation context
 TECH_CATEGORIES = {
     "languages": [
         "python", "javascript", "java", "c++", "c#", "go", "rust", 
@@ -123,5 +119,5 @@ EXPERIENCE_LEVELS = {
     "junior": (0, 2),
     "mid": (2, 5),
     "senior": (5, 10),
-    "lead": (10, float('inf'))
+    "architect": (10, float('inf'))
 }

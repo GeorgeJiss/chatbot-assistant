@@ -1,11 +1,10 @@
 """
-Main chatbot manager - orchestrates the conversation with VOICE support
-FIXED: One question at a time, proper state management, JSON storage
+Main chatbot manager - orchestrates the conversation (NO VOICE)
+Enhanced with "I don't know" handling and rollback
 """
 
 from typing import Optional, Dict, Any
 import random
-import time
 from datetime import datetime
 
 from src.utils.constants import (
@@ -15,48 +14,46 @@ from src.utils.constants import (
 from src.chatbot.conversation_flow import ConversationFlow
 from src.services.llm_service import LLMService
 from src.services.storage_service import StorageService
-from src.services.voice_service import VoiceService
 from src.services.sentiment_service import SentimentService
-from src.services.language_service import LanguageService
-from src.prompts.system_prompts import get_stage_system_prompt
 from src.prompts.question_generator import QuestionGenerator
 from src.utils.helpers import generate_session_id
 import config
 
+# Keywords indicating "I don't know"
+DONT_KNOW_KEYWORDS = [
+    "don't know", "dont know", "do not know",
+    "not sure", "unsure", "no idea", "not aware",
+    "don't understand", "dont understand",
+    "never used", "not familiar", "no experience",
+    "i am not aware", "not aware"
+]
+
 class ChatbotManager:
-    """Main chatbot manager with VOICE capabilities - ONE QUESTION AT A TIME"""
+    """Main chatbot manager - TEXT ONLY, ROLE-BASED QUESTIONS"""
     
     def __init__(self):
         self.session_id = generate_session_id()
         self.current_stage = ConversationStage.GREETING
         
-        # Initialize services
+        # Initialize services (NO VOICE)
         self.llm_service = LLMService()
         self.storage_service = StorageService()
         self.conversation_flow = ConversationFlow()
         self.question_generator = QuestionGenerator()
-        self.voice_service = VoiceService()
         self.sentiment_service = SentimentService()
-        self.language_service = LanguageService()
         
         # Candidate data storage
         self.candidate_data = {}
         self.candidate_id = None
         
-        # Technical Q&A tracking - ONE AT A TIME
+        # Technical Q&A tracking
         self.current_tech = None
         self.current_question = None
         self.question_count = 0
         self.total_questions = 0
-        self.waiting_for_answer = False
         
-        # Voice interaction tracking
-        self.voice_enabled = config.VOICE_ENABLED
-        self.current_language = 'en'
-        
-        # Interview timing
-        self.interview_start_time = time.time()
-        self.time_remaining = config.MAX_INTERVIEW_DURATION
+        # Track skipped questions
+        self.skipped_questions = []
         
         # Conversation history
         self.conversation_history = []
@@ -65,65 +62,31 @@ class ChatbotManager:
         self.metrics = {
             'sentiment_scores': [],
             'answer_lengths': [],
-            'relevance_scores': []
+            'relevance_scores': [],
+            'questions_skipped': 0
         }
         
         print(f"✅ ChatbotManager initialized - Session: {self.session_id}")
     
-    def get_time_remaining(self) -> int:
-        """Get remaining interview time in seconds"""
-        elapsed = time.time() - self.interview_start_time
-        remaining = max(0, int(self.time_remaining - elapsed))
-        return remaining
-    
-    def is_time_exceeded(self) -> bool:
-        """Check if interview time exceeded"""
-        return self.get_time_remaining() == 0
-    
     def get_greeting(self) -> str:
         """Get initial greeting message"""
         self.current_stage = ConversationStage.INFO_GATHERING
-        greeting_text = self.language_service.get_text('greeting', self.current_language)
-        return f"{greeting_text}\n\n{GREETING_MESSAGE}"
+        return GREETING_MESSAGE
     
-    def process_message(self, user_message: str, is_voice: bool = False) -> Dict[str, Any]:
-        """
-        Process user message and generate response - ONE QUESTION AT A TIME
-        
-        Args:
-            user_message: User's input message
-            is_voice: Whether this is from voice input
-            
-        Returns:
-            Dictionary with response and metadata
-        """
+    def process_message(self, user_message: str) -> Dict[str, Any]:
+        """Process user message and generate response"""
         print(f"\n{'='*60}")
-        print(f"Processing message: '{user_message[:50]}...'")
-        print(f"Current stage: {self.current_stage}")
-        print(f"Question count: {self.question_count}/{self.total_questions}")
+        print(f"Processing: '{user_message[:50]}...'")
+        print(f"Stage: {self.current_stage}")
         
-        # Check time
-        if self.is_time_exceeded():
-            return {
-                'response': "⏰ I apologize, but we've reached the 15-minute interview limit. Thank you for your time!",
-                'audio_path': None,
-                'end_conversation': True
-            }
-        
-        # Detect language if voice input
-        if is_voice and user_message:
-            detected_lang = self.language_service.detect_language(user_message)
-            if detected_lang in config.SUPPORTED_LANGUAGES:
-                self.current_language = detected_lang
-        
-        # Add to conversation history
+        # Add to history
         self.conversation_history.append({
             "role": "user",
             "content": user_message,
             "timestamp": datetime.now().isoformat()
         })
         
-        # Determine current stage
+        # Determine stage
         self.current_stage = self.conversation_flow.get_current_stage(self.candidate_data)
         
         # Process based on stage
@@ -140,10 +103,7 @@ class ChatbotManager:
             response_data = self._handle_closing()
         
         else:
-            response_data = {
-                'response': self._get_fallback_response(),
-                'audio_path': None
-            }
+            response_data = {'response': self._get_fallback_response()}
         
         # Add response to history
         self.conversation_history.append({
@@ -152,21 +112,10 @@ class ChatbotManager:
             "timestamp": datetime.now().isoformat()
         })
         
-        # Generate audio if voice enabled
-        if self.voice_enabled and response_data.get('response'):
-            audio_path = self.voice_service.text_to_speech(
-                response_data['response'],
-                self.current_language
-            )
-            response_data['audio_path'] = audio_path
-        
-        # Add time remaining
-        response_data['time_remaining'] = self.get_time_remaining()
-        
-        # Save to JSON after every interaction
+        # Save after every interaction
         self._save_candidate_data()
         
-        print(f"Response generated: '{response_data['response'][:50]}...'")
+        print(f"Response generated")
         print(f"{'='*60}\n")
         
         return response_data
@@ -176,11 +125,10 @@ class ChatbotManager:
         next_field = self.conversation_flow.get_next_info_field(self.candidate_data)
         
         if not next_field:
-            # All info collected, move to tech stack
             self.current_stage = ConversationStage.TECH_STACK
             return self._handle_tech_stack("")
         
-        # Validate the response
+        # Validate response
         is_valid, error, parsed_value = self.conversation_flow.validate_response(
             next_field,
             user_message
@@ -190,40 +138,24 @@ class ChatbotManager:
             self.candidate_data[next_field.value] = parsed_value
             print(f"✅ Stored {next_field.value}: {parsed_value}")
             
-            # Save immediately
-            self._save_candidate_data()
-            
             # Get next field
             next_field_after = self.conversation_flow.get_next_info_field(self.candidate_data)
             
             if next_field_after:
                 acknowledgment = self._generate_acknowledgment(next_field)
                 next_prompt = self.conversation_flow.get_next_prompt(self.candidate_data)
-                return {
-                    'response': f"{acknowledgment} {next_prompt}",
-                    'audio_path': None
-                }
+                return {'response': f"{acknowledgment}\n\n{next_prompt}"}
             else:
-                # All basic info collected
                 acknowledgment = "Perfect! I have all your basic information."
                 tech_prompt = self.conversation_flow.get_next_prompt(self.candidate_data)
-                return {
-                    'response': f"{acknowledgment}\n\n{tech_prompt}",
-                    'audio_path': None
-                }
+                return {'response': f"{acknowledgment}\n\n{tech_prompt}"}
         else:
-            return {
-                'response': f"{error}\n\n{self.conversation_flow.get_next_prompt(self.candidate_data)}",
-                'audio_path': None
-            }
+            return {'response': f"{error}\n\n{self.conversation_flow.get_next_prompt(self.candidate_data)}"}
     
     def _handle_tech_stack(self, user_message: str) -> Dict[str, Any]:
-        """Handle tech stack declaration stage"""
+        """Handle tech stack declaration"""
         if not user_message or user_message.strip() == "":
-            return {
-                'response': self.conversation_flow.get_next_prompt(self.candidate_data),
-                'audio_path': None
-            }
+            return {'response': self.conversation_flow.get_next_prompt(self.candidate_data)}
         
         is_valid, error, tech_list = self.conversation_flow.validate_response(
             InfoField.TECH_STACK,
@@ -231,7 +163,6 @@ class ChatbotManager:
         )
         
         if is_valid:
-            # Limit to MAX_TECH_STACK_ITEMS for time management
             tech_list = tech_list[:config.MAX_TECH_STACK_ITEMS]
             
             self.candidate_data['tech_stack'] = tech_list
@@ -241,42 +172,39 @@ class ChatbotManager:
             self.total_questions = len(tech_list) * config.QUESTIONS_PER_TECH
             self.question_count = 0
             
-            print(f"✅ Tech stack stored: {tech_list}")
-            print(f"📊 Total questions to ask: {self.total_questions}")
-            
-            # Save immediately
-            self._save_candidate_data()
+            print(f"✅ Tech stack: {tech_list}")
+            print(f"📊 Total questions: {self.total_questions}")
             
             self.current_stage = ConversationStage.TECHNICAL_QUESTIONS
             
+            role = self.candidate_data.get('position', '')
+            experience = self.candidate_data.get('experience', 0)
             tech_display = ', '.join([t.title() for t in tech_list])
-            intro = f"Excellent! I'll assess your skills in: {tech_display}.\n\nI'll ask you {self.total_questions} technical questions, one at a time.\n\nLet's begin!"
             
-            # Get first question
+            intro = f"""Excellent! I see you're proficient in: **{tech_display}**.
+
+Based on your role as **{role}** with **{experience} years** of experience, I'll now ask you **{self.total_questions} technical questions** tailored to your level.
+
+Let's begin!"""
+            
             first_question = self._get_next_technical_question()
             
             if first_question:
-                return {
-                    'response': f"{intro}\n\n{first_question}",
-                    'audio_path': None
-                }
+                return {'response': f"{intro}\n\n{first_question}"}
             else:
-                return {
-                    'response': "I'm sorry, I couldn't generate questions. Let's try again.",
-                    'audio_path': None
-                }
+                return {'response': "I'm sorry, I couldn't generate questions."}
         else:
-            return {
-                'response': f"{error}\n\nPlease list 1-{config.MAX_TECH_STACK_ITEMS} technologies separated by commas.",
-                'audio_path': None
-            }
+            return {'response': f"{error}\n\nPlease list 1-{config.MAX_TECH_STACK_ITEMS} technologies separated by commas."}
     
     def _handle_technical_questions(self, user_message: str) -> Dict[str, Any]:
-        """Handle technical questions stage - ONE AT A TIME"""
+        """Handle technical questions with 'I don't know' support"""
         
-        # If we have a current question and got an answer
         if self.current_question and user_message.strip():
             print(f"📝 Processing answer for: {self.current_tech}")
+            
+            # Check if user doesn't know the answer
+            if self._is_dont_know_answer(user_message):
+                return self._handle_dont_know_answer()
             
             # Validate answer quality
             is_valid, feedback, metrics = self.sentiment_service.validate_answer_quality(
@@ -286,13 +214,9 @@ class ChatbotManager:
             
             if not is_valid:
                 print(f"⚠️ Invalid answer: {feedback}")
-                return {
-                    'response': f"{feedback}\n\nPlease try again.",
-                    'audio_path': None,
-                    'needs_retry': True
-                }
+                return {'response': f"{feedback}\n\nIf you don't know the answer, you can type \"I don't know\" and we'll move to the next question."}
             
-            # Check relevance
+            # Calculate relevance
             relevance = self.sentiment_service.check_answer_relevance(
                 user_message,
                 self.current_question,
@@ -304,7 +228,7 @@ class ChatbotManager:
             self.metrics['answer_lengths'].append(metrics['length'])
             self.metrics['relevance_scores'].append(relevance)
             
-            # Store the answer in JSON structure
+            # Store answer
             if self.current_tech not in self.candidate_data['technical_qa']:
                 self.candidate_data['technical_qa'][self.current_tech] = []
             
@@ -312,6 +236,7 @@ class ChatbotManager:
                 'question': self.current_question,
                 'answer': user_message.strip(),
                 'timestamp': datetime.now().isoformat(),
+                'skipped': False,
                 'metrics': {
                     'sentiment': metrics['sentiment']['polarity'],
                     'length': metrics['length'],
@@ -320,10 +245,7 @@ class ChatbotManager:
             })
             
             self.question_count += 1
-            print(f"✅ Answer stored. Progress: {self.question_count}/{self.total_questions}")
-            
-            # Save immediately after each answer
-            self._save_candidate_data()
+            print(f"✅ Progress: {self.question_count}/{self.total_questions}")
             
             # Clear current question
             self.current_question = None
@@ -333,66 +255,107 @@ class ChatbotManager:
             next_question = self._get_next_technical_question()
             
             if next_question:
-                # Generate brief acknowledgment
-                acknowledgment = random.choice([
-                    "Thank you.",
-                    "Got it.",
-                    "Noted.",
-                    "Thanks for your answer."
-                ])
-                
-                return {
-                    'response': f"{acknowledgment}\n\n{next_question}",
-                    'audio_path': None
-                }
+                acknowledgments = [
+                    "Thank you for your answer.",
+                    "Got it, thanks!",
+                    "Great, let's continue.",
+                    "Thanks! Next question:"
+                ]
+                acknowledgment = random.choice(acknowledgments)
+                return {'response': f"{acknowledgment}\n\n{next_question}"}
             else:
-                # All questions answered
+                # All done
                 print("✅ All questions completed!")
                 self.candidate_data['qa_in_progress'] = False
                 self.candidate_data['final_metrics'] = self._calculate_final_metrics()
-                self._save_candidate_data()
-                
                 self.current_stage = ConversationStage.CLOSING
                 return self._handle_closing()
-        
         else:
-            # No current question, get one
-            print("📋 Getting next question...")
+            # Get next question
             next_question = self._get_next_technical_question()
-            
             if next_question:
-                return {
-                    'response': next_question,
-                    'audio_path': None
-                }
+                return {'response': next_question}
             else:
-                # No more questions
                 self.current_stage = ConversationStage.CLOSING
                 return self._handle_closing()
     
+    def _is_dont_know_answer(self, answer: str) -> bool:
+        """Check if answer indicates 'I don't know'"""
+        answer_lower = answer.lower().strip()
+        
+        # Exact short answers
+        if answer_lower in ["idk", "no", "nope", "skip"]:
+            return True
+        
+        # Check for keywords
+        return any(keyword in answer_lower for keyword in DONT_KNOW_KEYWORDS)
+    
+    def _handle_dont_know_answer(self) -> Dict[str, Any]:
+        """Handle when user doesn't know the answer"""
+        print(f"⚠️ User doesn't know answer for: {self.current_tech}")
+        
+        # Store as skipped
+        if self.current_tech not in self.candidate_data['technical_qa']:
+            self.candidate_data['technical_qa'][self.current_tech] = []
+        
+        self.candidate_data['technical_qa'][self.current_tech].append({
+            'question': self.current_question,
+            'answer': "Question skipped - candidate indicated they don't know",
+            'timestamp': datetime.now().isoformat(),
+            'skipped': True,
+            'metrics': {
+                'sentiment': 0,
+                'length': 0,
+                'relevance': 0
+            }
+        })
+        
+        self.question_count += 1
+        self.metrics['questions_skipped'] += 1
+        
+        print(f"✅ Skipped. Progress: {self.question_count}/{self.total_questions}")
+        
+        # Clear current question
+        self.current_question = None
+        self.current_tech = None
+        
+        # Get next question
+        next_question = self._get_next_technical_question()
+        
+        if next_question:
+            response = f"""That's okay! It's perfectly fine to not know everything.
+
+Let's move on to the next question.
+
+{next_question}"""
+            return {'response': response}
+        else:
+            # All done
+            self.candidate_data['qa_in_progress'] = False
+            self.candidate_data['final_metrics'] = self._calculate_final_metrics()
+            self.current_stage = ConversationStage.CLOSING
+            return self._handle_closing()
+    
     def _get_next_technical_question(self) -> Optional[str]:
-        """Get next technical question - ONE AT A TIME"""
+        """Get next technical question with role-based difficulty"""
         tech_stack = self.candidate_data.get('tech_stack', [])
         answered_qa = self.candidate_data.get('technical_qa', {})
+        role = self.candidate_data.get('position', '')
         experience = self.candidate_data.get('experience', 0)
-        
-        print(f"🔍 Finding next question from {len(tech_stack)} technologies")
         
         for tech in tech_stack:
             answered_count = len(answered_qa.get(tech, []))
-            print(f"  - {tech}: {answered_count}/{config.QUESTIONS_PER_TECH} answered")
             
             if answered_count < config.QUESTIONS_PER_TECH:
-                # Generate questions for this tech
+                # Generate questions
                 questions = self.question_generator.generate_questions_for_tech(
                     tech,
-                    experience,
+                    role=role,
+                    experience_years=experience,
                     num_questions=config.QUESTIONS_PER_TECH
                 )
                 
-                print(f"  - Generated {len(questions)} questions for {tech}")
-                
-                # Find unanswered question
+                # Find unanswered
                 for question in questions:
                     already_answered = any(
                         qa['question'] == question
@@ -400,11 +363,8 @@ class ChatbotManager:
                     )
                     
                     if not already_answered:
-                        # Set as current question
                         self.current_tech = tech
                         self.current_question = question
-                        
-                        print(f"✅ Next question set: {tech}")
                         
                         return self.question_generator.format_question(
                             tech,
@@ -413,30 +373,29 @@ class ChatbotManager:
                             self.total_questions
                         )
         
-        print("❌ No more questions available")
         return None
     
     def _handle_closing(self) -> Dict[str, Any]:
-        """Handle closing stage"""
+        """Handle closing"""
         self.candidate_data['qa_in_progress'] = False
         self.candidate_data['completed_at'] = datetime.now().isoformat()
-        self._save_candidate_data()
-        
         return {
             'response': CLOSING_MESSAGE,
-            'audio_path': None,
             'end_conversation': True
         }
     
     def _calculate_final_metrics(self) -> Dict:
-        """Calculate final interview metrics (hidden from candidate)"""
+        """Calculate final metrics"""
+        answered = self.question_count - self.metrics['questions_skipped']
+        
         metrics = {
+            'total_questions': self.question_count,
+            'questions_answered': answered,
+            'questions_skipped': self.metrics['questions_skipped'],
+            'completion_rate': (self.question_count / self.total_questions * 100) if self.total_questions > 0 else 0,
             'avg_sentiment': 0,
             'avg_answer_length': 0,
-            'avg_relevance': 0,
-            'total_questions': self.question_count,
-            'time_taken': time.time() - self.interview_start_time,
-            'completion_rate': (self.question_count / self.total_questions * 100) if self.total_questions > 0 else 0
+            'avg_relevance': 0
         }
         
         if self.metrics['sentiment_scores']:
@@ -448,57 +407,44 @@ class ChatbotManager:
         if self.metrics['relevance_scores']:
             metrics['avg_relevance'] = sum(self.metrics['relevance_scores']) / len(self.metrics['relevance_scores'])
         
-        print(f"📊 Final metrics calculated: {metrics}")
         return metrics
     
     def _save_candidate_data(self):
-        """Save candidate data to JSON file"""
+        """Save to JSON"""
         try:
             candidate_id = self.storage_service.save_candidate(
                 self.candidate_data,
                 self.session_id
             )
-            
             if candidate_id:
                 self.candidate_id = candidate_id
-                print(f"💾 Data saved - Candidate ID: {candidate_id}")
-            else:
-                print("⚠️ Failed to save candidate data")
-                
         except Exception as e:
-            print(f"❌ Error saving data: {e}")
+            print(f"❌ Save error: {e}")
     
     def _generate_acknowledgment(self, field: InfoField) -> str:
-        """Generate acknowledgment for collected information"""
+        """Generate acknowledgment"""
         acknowledgments = {
-            InfoField.NAME: ["Great!", "Thank you!", "Perfect!"],
+            InfoField.NAME: ["Great!", "Thank you!", "Perfect!", "Nice to meet you!"],
             InfoField.EMAIL: ["Got it!", "Recorded.", "Perfect!"],
             InfoField.PHONE: ["Thank you!", "Noted.", "Got it!"],
-            InfoField.EXPERIENCE: ["Excellent!", "Thank you.", "Got it!"],
-            InfoField.POSITION: ["Great!", "Interesting!", "Excellent!"],
+            InfoField.EXPERIENCE: ["Excellent!", "Great!", "Understood!"],
+            InfoField.POSITION: ["Interesting!", "Great choice!", "Excellent!"],
             InfoField.LOCATION: ["Perfect!", "Got it!", "Thank you!"]
         }
         return random.choice(acknowledgments.get(field, ["Thank you!"]))
     
     def _get_fallback_response(self) -> str:
-        """Get fallback response for unclear input"""
+        """Fallback response"""
         return random.choice(FALLBACK_RESPONSES)
     
     def handle_exit(self) -> Dict[str, Any]:
-        """Handle conversation exit"""
+        """Handle exit"""
         if self.candidate_data:
             self.candidate_data['incomplete'] = True
             self.candidate_data['exit_time'] = datetime.now().isoformat()
             self._save_candidate_data()
-            print(f"👋 Interview exited - Data saved")
         
         return {
-            'response': "Thank you for your time! Your session has been saved. Have a great day!",
-            'audio_path': None,
+            'response': "Thank you for your time! Your progress has been saved. Have a great day!",
             'end_conversation': True
         }
-    
-    def get_candidate_summary(self) -> str:
-        """Get summary of collected candidate data (for admin only)"""
-        from src.utils.helpers import create_candidate_summary
-        return create_candidate_summary(self.candidate_data)
