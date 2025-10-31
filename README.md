@@ -1,292 +1,265 @@
 # 🤖 TalentScout AI Hiring Assistant
 
-An intelligent chatbot for automated candidate screening and technical assessment, built with Streamlit and powered by Groq's LLM API.
+An **intelligent, automated candidate screening assistant** built using **Streamlit** and powered by **Groq's Llama 3.1 LLM API**.  
+TalentScout AI conducts structured interviews, validates candidate details, and dynamically generates technical questions tailored to the applicant’s experience and tech stack — all while ensuring data privacy and local storage.
+
+---
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.29.0-red)](https://streamlit.io/)
-[![Groq](https://img.shields.io/badge/Groq-API-green)](https://groq.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.29.0-FF4B4B)](https://streamlit.io/)
+[![Groq](https://img.shields.io/badge/Groq-API-00C853)](https://groq.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-## 📋 Table of Contents
+---
 
-- [Overview](#overview)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Project Structure](#project-structure)
-- [Deployment](#deployment)
-- [Testing](#testing)
-- [Contributing](#contributing)
+## 🧠 Overview
 
-## 🎯 Overview
+### What Is It?
 
-TalentScout AI Hiring Assistant is a conversational AI system designed to streamline the initial screening process for technology recruitment. It conducts structured interviews with candidates, gathering essential information and assessing technical proficiency through dynamically generated questions tailored to each candidate's tech stack.
+**TalentScout AI Hiring Assistant** is a chatbot-powered application that simulates a **real-time HR screening and technical interview** process.  
+It collects candidate details such as **name, email, phone, experience, preferred position, and tech stack**, and then generates **custom technical questions** per candidate profile.
 
-### Key Features
+### Why It Exists
 
-✅ **Automated Information Collection**
-- Name, email, phone, experience
-- Position, location, tech stack
+Recruiters and HR teams often spend hours conducting repetitive screening rounds.  
+This project automates that process — saving time while maintaining quality assessment.
 
-✅ **Dynamic Question Generation**
-- 3-5 questions per technology
-- Difficulty based on experience
-- Powered by Llama 3.1 70B
+### Highlights
+- ⚙️ **Fully automated candidate screening**
+- 🧑‍💻 **AI-generated technical questions**
+- 🧩 **Dynamic difficulty adjustment** based on role/experience
+- 🔒 **Data privacy first — local JSON storage only**
+- 🧾 **Configurable interview logic & structure**
+- 🚫 **Offline-capable — no cloud upload dependency**
 
-✅ **Smart Validation**
-- Email format checking
-- Phone number validation
-- Experience parsing
+---
 
-✅ **Data Privacy**
-- Local storage only
-- GDPR compliant
-- No cloud uploads
+## 🖼️ Demo Preview
 
-✅ **Exit Anytime**
-- Type: exit, quit, bye
-- Progress automatically saved
+### 👋 Interaction Example
 
-## 🚀 Installation
+🤖 Assistant: Hello! Welcome to TalentScout AI Hiring Assistant.
+I'm here to conduct your initial screening interview.
 
-### Prerequisites
-
-- Python 3.9+
-- pip
-- Git
-
-### Quick Start
-```bash
-# Clone repository
-git clone https://github.com/yourusername/talentscout-hiring-assistant.git
-cd talentscout-hiring-assistant
-
-# Run automated setup
-chmod +x setup.sh
-./setup.sh
-
-# Edit .env with your API key
-nano .env
-
-# Run the application
-streamlit run app.py
-```
-
-### Manual Installation
-```bash
-# 1. Create virtual environment
-python3 -m venv venv
-
-# 2. Activate virtual environment
-# On macOS/Linux:
-source venv/bin/activate
-# On Windows:
-venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Set up environment
-cp .env.example .env
-# Edit .env and add your GROQ_API_KEY
-
-# 5. Create directories
-mkdir -p data/candidates data/tech_stacks logs
-
-# 6. Run application
-streamlit run app.py
-```
-
-## ⚙️ Configuration
-
-### Getting Groq API Key (FREE)
-
-1. Visit https://console.groq.com/
-2. Sign up using GitHub or Google
-3. Navigate to "API Keys" section
-4. Click "Create API Key"
-5. Copy the key to your `.env` file
-
-**Free Tier Benefits:**
-- 14,400 requests per day
-- 600 requests per hour
-- No credit card required
-- Access to Llama 3.1, Mixtral, and Gemma models
-
-### Environment Variables
-
-Create a `.env` file in the project root:
-```env
-# Required: Your Groq API Key
-GROQ_API_KEY=your_groq_api_key_here
-
-# Optional: Model selection (default: llama-3.1-70b-versatile)
-GROQ_MODEL=llama-3.1-70b-versatile
-
-# Optional: Logging level (default: INFO)
-LOG_LEVEL=INFO
-```
-
-## 📖 Usage
-
-### Starting a Session
-
-1. Run: `streamlit run app.py`
-2. Open browser at `http://localhost:8501`
-3. Follow the chatbot prompts
-4. Provide your information
-5. Answer technical questions
-6. Complete the screening
-
-### Example Conversation
-```
-Bot: Welcome! To begin, could you please tell me your full name?
 You: John Smith
-
-Bot: Great! What's your email address?
+🤖 Assistant: Great! What’s your email address?
 You: john.smith@email.com
 
-Bot: Perfect! What's your phone number?
-You: +1-555-123-4567
+🤖 Assistant: Perfect! What’s your tech stack?
+You: Python, React, Docker, AWS
+🤖 Assistant: Excellent! Let’s start your technical interview...
 
-Bot: How many years of professional experience do you have?
-You: 5 years
 
-Bot: What position(s) are you interested in?
-You: Senior Software Engineer
+The chatbot dynamically tailors questions like:
+> “Can you explain how Docker improves CI/CD pipelines?”  
+> “Describe the role of React hooks in component lifecycle management.”
 
-Bot: Where are you currently located?
-You: San Francisco, CA
+---
 
-Bot: Please list your tech stack (comma-separated):
-You: Python, React, PostgreSQL, Docker, AWS
+## 🧩 System Architecture
 
-Bot: Excellent! Now I'll ask you 15 technical questions...
-```
+```mermaid
+flowchart TD
+    A[User Interface (Streamlit)] -->|Input| B[Chatbot Manager]
+    B -->|Requests| C[Groq LLM API]
+    B -->|Validation| D[Validation Service]
+    B -->|Save Data| E[Storage Service]
+    B -->|Question Logic| F[Question Generator]
+    C -->|LLM Response| B
+    E -->|Local JSON| G[data/candidates]
 
-## 📁 Project Structure
-```
+Core Flow:
+
+User enters basic information
+
+Validation Service checks input (email, phone, etc.)
+
+Chatbot Manager orchestrates conversation and passes prompts to Groq API
+
+Question Generator tailors technical questions based on tech stack + experience
+
+Responses stored locally under /data/candidates/ for recruiter access
+
+⚙️ Configuration
+🧾 Environment Setup
+
+Create a .env file in your project root:
+
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=llama-3.1-70b-versatile
+LOG_LEVEL=INFO
+
+🔑 Get a Free Groq API Key
+
+Visit https://console.groq.com
+
+Sign up using GitHub or Google
+
+Generate an API key and paste it into .env
+
+Free tier limits:
+
+14,400 requests/day
+
+600 requests/hour
+
+Access to Llama 3.1, Mixtral, Gemma models
+
+No credit card required
+
+🛠️ Installation & Setup
+1️⃣ Quick Setup (Linux/Mac)
+git clone https://github.com/yourusername/talentscout-hiring-assistant.git
+cd talentscout-hiring-assistant
+chmod +x setup.sh
+./setup.sh
+streamlit run app.py
+
+2️⃣ Manual Setup (All OS)
+python3 -m venv venv
+source venv/bin/activate        # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+nano .env                       # Add your API key
+streamlit run app.py
+
+
+Access the app at http://localhost:8501
+
+💡 Features Explained
+Feature	Description
+🗣️ Chat-based Interview	Interactive session with structured HR-style prompts
+🧠 AI-Powered Assessment	Uses Groq’s Llama 3.1 70B to create dynamic technical questions
+📊 Smart Difficulty Control	Adjusts question complexity based on experience or job title
+✅ Input Validation	Built-in regex checks for email/phone formatting
+💾 Local Data Storage	Stores all session data in /data/candidates/
+⚡ Auto Save & Resume	Session state automatically saved and restorable
+🔐 Privacy Focused	GDPR-friendly — no data sent to cloud except LLM prompt
+🛑 Exit Anytime	Type exit, quit, or bye to end safely
+🧱 Project Structure
 talentscout-hiring-assistant/
 │
-├── .env.example              # Environment template
-├── .gitignore               # Git ignore rules
-├── README.md                # This file
-├── requirements.txt         # Dependencies
-├── config.py               # Configuration
-├── app.py                  # Main Streamlit app
-├── setup.sh                # Setup script
+├── app.py                  # Streamlit UI + main chat logic
+├── config.py               # All app configuration & constants
+├── setup.sh                # Automated setup script
+├── requirements.txt        # Project dependencies
 │
 ├── src/
-│   ├── __init__.py
 │   ├── chatbot/
-│   │   ├── __init__.py
-│   │   ├── manager.py              # Main chatbot logic
-│   │   └── conversation_flow.py   # Flow controller
+│   │   ├── manager.py              # Core conversation manager
+│   │   └── conversation_flow.py    # Dialogue flow logic
 │   │
 │   ├── services/
-│   │   ├── __init__.py
-│   │   ├── llm_service.py         # Groq API
-│   │   ├── validation_service.py  # Input validation
-│   │   └── storage_service.py     # Data storage
+│   │   ├── llm_service.py          # Groq API integration
+│   │   ├── validation_service.py   # Input validation (regex)
+│   │   └── storage_service.py      # JSON-based local storage
 │   │
 │   ├── prompts/
-│   │   ├── __init__.py
-│   │   ├── system_prompts.py      # System prompts
-│   │   └── question_generator.py  # Question generation
+│   │   ├── system_prompts.py       # Base system instructions
+│   │   └── question_generator.py   # Dynamic question logic
 │   │
 │   └── utils/
-│       ├── __init__.py
-│       ├── constants.py           # Constants
-│       └── helpers.py             # Helper functions
+│       ├── constants.py            # Exit keywords & helper constants
+│       └── helpers.py              # Utility functions
 │
 ├── data/
-│   ├── candidates/                # Candidate data
-│   └── tech_stacks/
-│       └── question_bank.json    # Question templates
-│
-├── tests/
-│   ├── __init__.py
-│   ├── test_validation.py
-│   ├── test_llm_service.py
-│   └── test_chatbot.py
+│   ├── candidates/                 # Stored candidate sessions
+│   └── tech_stacks/question_bank.json
 │
 └── logs/
-    └── app.log                    # Application logs
-```
+    └── app.log                     # Runtime logs
 
-<!-- ## 🧪 Testing
+🧩 Key Files Explained
+app.py
 
-Run the test suite:
-```bash
-# Activate virtual environment
-source venv/bin/activate  # or venv\Scripts\activate on Windows
+Streamlit UI for chatbot interface
 
-# Run all tests
+Manages user input, chat history, and visual layout
+
+Uses custom CSS for a professional interview UI
+
+config.py
+
+Holds all application settings
+
+Handles environment loading, directory creation, validation patterns
+
+Defines question difficulty, storage structure, and role mappings
+
+🧪 Testing
+
+To run tests:
+
 pytest tests/ -v
 
-# Run with coverage
+
+or with coverage:
+
 pytest --cov=src tests/
 
-# Run specific test file
-pytest tests/test_validation.py -v
-``` -->
+☁️ Deployment
+🌐 Streamlit Cloud (Free)
 
-## 🚀 Deployment
+Push your repository to GitHub
 
-### Streamlit Cloud (Free)
+Go to Streamlit Cloud
 
-1. Push code to GitHub
-2. Visit https://share.streamlit.io/
-3. Connect your repository
-4. Add secrets in dashboard:
-```toml
-   GROQ_API_KEY = "your_key"
-```
-5. Deploy!
+Connect your repo
 
-### Local Deployment
-```bash
+Add this in the app’s “Secrets” section:
+
+GROQ_API_KEY = "your_key"
+
+
+Click Deploy
+
+💻 Local Deployment
 streamlit run app.py
-```
 
-Access at: `http://localhost:8501`
 
-## 📊 Technical Details
+Then open http://localhost:8501
 
-### Technology Stack
+🧠 Technical Details
+Component	Description
+Frontend	Streamlit 1.29.0
+Backend	Python 3.9+
+LLM Provider	Groq API (Llama 3.1 70B)
+Storage	Local JSON files
+Testing	pytest 7.4.3
+🧩 Core Classes
+Class	Responsibility
+ChatbotManager	Orchestrates conversation and state handling
+LLMService	Connects to Groq API, handles retries and responses
+ValidationService	Validates candidate inputs
+StorageService	Stores and retrieves session data
+QuestionGenerator	Dynamically generates interview questions
+🤝 Contributing
 
-- **Frontend**: Streamlit 1.29.0
-- **Language**: Python 3.9+
-- **LLM Provider**: Groq API (Llama 3.1 70B)
-- **Storage**: JSON files (local)
-- **Testing**: pytest 7.4.3
+Contributions are welcome!
+To contribute:
 
-### Key Components
+Fork this repo
 
-1. **ChatbotManager** - Orchestrates conversation flow
-2. **LLMService** - Groq API integration with retry logic
-3. **ValidationService** - Input validation (email, phone, etc.)
-4. **StorageService** - JSON-based data persistence
-5. **QuestionGenerator** - Dynamic technical question generation
+Create a new branch (feature/my-feature)
 
-## 🤝 Contributing
+Commit and push your changes
 
-Contributions welcome! Please:
+Submit a Pull Request 🎉
 
-1. Fork the repository
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Open Pull Request
+👨‍💻 Author
 
-## 👥 Authors
+George Jiss
+📧 Email
 
-- **George Jiss**
+🌐 GitHub Profile
 
-## 🙏 Acknowledgments
+🙏 Acknowledgments
 
-- [Groq](https://groq.com/) for free, fast LLM inference
-- [Streamlit](https://streamlit.io/) for the amazing web framework
-- [Meta AI](https://ai.meta.com/) for Llama models
+Groq
+ — for lightning-fast LLM inference
+
+Streamlit
+ — for the simple yet powerful UI framework
+
+Meta AI
+ — for Llama 3 model family
