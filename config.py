@@ -5,12 +5,20 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Try to import Streamlit for secrets (if deployed on Streamlit Cloud)
+try:
+    import streamlit as st
+    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY", ""))
+    GROQ_MODEL = st.secrets.get("GROQ_MODEL", os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"))
+    LOG_LEVEL = st.secrets.get("LOG_LEVEL", os.getenv("LOG_LEVEL", "INFO"))
+except:
+    # Fallback to environment variables (local development)
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
 # Base directory
 BASE_DIR = Path(__file__).parent
-
-# API Configuration
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 # LLM Settings
 MAX_TOKENS = 1024
@@ -31,13 +39,9 @@ EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 PHONE_PATTERN = r'^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$'
 
 # Question Generation - ROLE-BASED
-QUESTIONS_PER_TECH = 3  # 3-5 questions per technology
+QUESTIONS_PER_TECH = 3  # 3 questions per technology
 MAX_TECH_STACK_ITEMS = 5  # Maximum 5 technologies
 MIN_TECH_STACK_ITEMS = 1  # Minimum 1 technology
-
-# Time Management
-QUESTION_TIME_LIMIT = 120  # 2 minutes (120 seconds) per question
-WARNING_TIME = 30  # Show warning at 30 seconds remaining
 
 # Role-Based Question Difficulty
 ROLE_DIFFICULTY_MAP = {
@@ -80,10 +84,6 @@ MIN_ANSWER_LENGTH = 20  # Minimum 20 characters
 MAX_ANSWER_LENGTH = 2000  # Maximum 2000 characters
 SENTIMENT_THRESHOLD = -0.3  # Negative sentiment threshold
 
-# Proctoring Settings
-MAX_TAB_SWITCHES = 3  # Flag if more than 3 tab switches
-COPY_PASTE_DISABLED = True  # Disable copy-paste
-
 # Session Settings
 SESSION_TIMEOUT_MINUTES = 30
 
@@ -93,7 +93,6 @@ APP_VERSION = "2.1.0"
 COMPANY_NAME = "TalentScout"
 
 # Logging
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 LOG_FILE = BASE_DIR / "logs" / "app.log"
 
 # Create logs directory
